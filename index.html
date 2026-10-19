@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>นักสืบอัลกอริทึม - เกมวิทยการคำนวณ ป.5</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Mitr:wght@300;400;500;600;700&family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        detective: {
+                            gold: '#FFB703',
+                            blue: '#023047',
+                            lightBlue: '#8ECAE6',
+                            orange: '#FB8500',
+                            purple: '#6C5CE7',
+                            teal: '#00B894',
+                            bg: '#F8F9FA'
+                        }
+                    },
+                    fontFamily: {
+                        mitr: ['Mitr', 'sans-serif'],
+                        prompt: ['Prompt', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: 'Mitr', 'Prompt', sans-serif;
+            background-color: #023047;
+            background-image: radial-gradient(#1d4ed8 0.75px, transparent 0.75px), radial-gradient(#1d4ed8 0.75px, #023047 0.75px);
+            background-size: 30px 30px;
+            background-position: 0 0, 15px 15px;
+            user-select: none;
+            touch-action: manipulation;
+        }
+
+        .bounce-hover {
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s ease;
+        }
+        .bounce-hover:hover {
+            transform: translateY(-4px) scale(1.02);
+        }
+        .bounce-click:active {
+            transform: translateY(2px) scale(0.98);
+        }
+
+        .draggable-card {
+            cursor: grab;
+            transition: all 0.25s cubic-bezier(0.2, 1, 0.2, 1);
+        }
+        .draggable-card:active {
+            cursor: grabbing;
+        }
+        .draggable-card.dragging {
+            opacity: 0.4;
+            transform: scale(0.95);
+        }
+        .drop-slot {
+            transition: border-color 0.2s, background-color 0.2s;
+        }
+        .drop-slot.drag-over {
+            background-color: rgba(142, 202, 230, 0.3);
+            border-color: #FFB703;
+        }
+
+        .detective-badge {
+            background: linear-gradient(135deg, #FFB703 0%, #FB8500 100%);
+        }
+
+        .pulse-gold {
+            animation: pulseGold 2s infinite;
+        }
+
+        @keyframes pulseGold {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(255, 183, 3, 0.6); }
+            50% { box-shadow: 0 0 0 15px rgba(255, 183, 3, 0); }
+        }
+
+        /* Custom Scrollbar for list */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #8e2de2;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-2 md:p-4 text-gray-800">
+
+    <div id="app" class="w-full max-w-4xl min-h-[680px] bg-slate-50 rounded-3xl shadow-2xl border-4 border-amber-400 overflow-hidden relative flex flex-col justify-between">
+
+        <!-- Top Navigation / Status Bar -->
+        <header id="status-bar" class="bg-detective-blue px-4 md:px-6 py-3 border-b-4 border-amber-400 flex flex-wrap justify-between items-center hidden z-20 text-white gap-2">
+            <div class="flex items-center gap-2 md:gap-3">
+                <span class="bg-amber-400 text-slate-900 px-3 md:px-4 py-1 rounded-full font-bold text-sm md:text-base border-2 border-amber-300 flex items-center gap-2 shadow-sm">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <span id="stage-indicator">ด่านที่ 1/10</span>
+                </span>
+                <span id="stage-title-nav" class="hidden sm:inline-block font-semibold text-amber-200 text-sm md:text-base">
+                    การแปรงฟัน
+                </span>
+            </div>
+
+            <!-- Stats Bar (Coins, Stars, Score) -->
+            <div class="flex items-center gap-3 text-xs md:text-sm font-bold">
+                <div class="flex items-center gap-1.5 bg-slate-800/80 border border-amber-400/50 px-3 py-1 rounded-full text-amber-300">
+                    <i class="fa-solid fa-coins text-amber-400 text-sm md:text-base"></i>
+                    <span id="coins-display">0</span>
+                </div>
+                <div class="flex items-center gap-1.5 bg-slate-800/80 border border-amber-400/50 px-3 py-1 rounded-full text-amber-300">
+                    <i class="fa-solid fa-star text-amber-400 text-sm md:text-base"></i>
+                    <span id="stars-display">0</span>
+                </div>
+                <div class="flex items-center gap-1.5 bg-amber-400 text-slate-900 px-3 py-1 rounded-full font-black">
+                    <i class="fa-solid fa-trophy"></i>
+                    <span id="score-display">0</span> คะแนน
+                </div>
+            </div>
+        </header>
+
+        <main id="content-area" class="flex-1 p-3 md:p-6 flex flex-col justify-center items-center relative overflow-y-auto">
+            <!-- Screen content loaded dynamically -->
+        </main>
+
+        <!-- Floating Sound Control -->
+        <button id="sound-toggle" onclick="toggleSound()" class="absolute bottom-4 right-4 z-30 bg-white border-2 border-slate-300 text-slate-700 w-11 h-11 rounded-full flex items-center justify-center shadow-lg hover:bg-amber-50 transition bounce-hover" title="เปิด/ปิด เสียง">
+            <i id="sound-icon" class="fa-solid fa-volume-high text-xl text-detective-blue"></i>
+        </button>
+
+        <!-- Modal Popup (คำใบ้ / ตรวจสอบ / ผลลัพธ์) -->
+        <div id="modal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+            <div class="bg-white rounded-3xl border-4 border-amber-400 p-6 max-w-md w-full text-center shadow-2xl transform transition-all scale-100 relative">
+                <div id="modal-icon" class="text-6xl mb-3">🔍</div>
+                <h3 id="modal-title" class="text-2xl font-bold text-slate-900 mb-2">คำใบ้นักสืบ!</h3>
+                <div id="modal-body" class="text-slate-600 mb-6 text-base leading-relaxed">
+                    รายละเอียดคำใบ้...
+                </div>
+                <button id="modal-btn" onclick="closeModal()" class="w-full py-3.5 px-6 bg-amber-400 hover:bg-amber-500 text-slate-950 font-bold text-lg rounded-2xl border-b-4 border-amber-600 active:border-b-0 bounce-click shadow-md transition">
+                    ตกลง
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        /* ---------------------------------------------------
+         *  1. SOUND ENGINE (Web Audio API)
+         * --------------------------------------------------- */
+        let audioEnabled = true;
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new AudioCtx();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playSound(type) {
+            if (!audioEnabled) return;
+            try {
+                initAudio();
+                const now = audioCtx.currentTime;
+
+                if (type === 'click') {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(500, now);
+                    osc.frequency.exponentialRampToValueAtTime(800, now + 0.05);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+                    osc.start(now);
+                    osc.stop(now + 0.05);
+                } else if (type === 'drag') {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(300, now);
+                    osc.frequency.linearRampToValueAtTime(450, now + 0.04);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.04);
+                    osc.start(now);
+                    osc.stop(now + 0.04);
+                } else if (type === 'correct') {
+                    const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+                    notes.forEach((freq, idx) => {
+                        const noteOsc = audioCtx.createOscillator();
+                        const noteGain = audioCtx.createGain();
+                        noteOsc.connect(noteGain);
+                        noteGain.connect(audioCtx.destination);
+                        noteOsc.type = 'sine';
+                        noteOsc.frequency.setValueAtTime(freq, now + idx * 0.07);
+                        noteGain.gain.setValueAtTime(0.2, now + idx * 0.07);
+                        noteGain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.07 + 0.18);
+                        noteOsc.start(now + idx * 0.07);
+                        noteOsc.stop(now + idx * 0.07 + 0.18);
+                    });
+                } else if (type === 'wrong') {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(220, now);
+                    osc.frequency.linearRampToValueAtTime(140, now + 0.25);
+                    gain.gain.setValueAtTime(0.25, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                    osc.start(now);
+                    osc.stop(now + 0.25);
+                } else if (type === 'win') {
+                    const notes = [392, 523.25, 659.25, 783.99, 1046.50];
+                    notes.forEach((freq, idx) => {
+                        const noteOsc = audioCtx.createOscillator();
+                        const noteGain = audioCtx.createGain();
+                        noteOsc.connect(noteGain);
+                        noteGain.connect(audioCtx.destination);
+                        noteOsc.type = 'triangle';
+                        noteOsc.frequency.setValueAtTime(freq, now + idx * 0.1);
+                        noteGain.gain.setValueAtTime(0.25, now + idx * 0.1);
+                        noteGain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.1 + 0.35);
+                        noteOsc.start(now + idx * 0.1);
+                        noteOsc.stop(now + idx * 0.1 + 0.35);
+                    });
+                }
+            } catch (e) {
+                console.log("Audio error", e);
+            }
+        }
+
+        function toggleSound() {
+            audioEnabled = !audioEnabled;
+            const icon = document.getElementById('sound-icon');
+            if (audioEnabled) {
+                icon.className = 'fa-solid fa-volume-high text-xl text-detective-blue';
+            } else {
+                icon.className = 'fa-solid fa-volume-xmark text-xl text-red-500';
+            }
+            playSound('click');
+        }
+
+        const stagesData = [
+            {
+                id: 1,
+                title: "การแปรงฟันอย่างถูกวิธี",
+                character: "🕵️‍♂️ คุณครูนักสืบ",
+                scenario: "ช่วยยอดนักสืบเรียงลำดับขั้นตอนการแปรงฟันในตอนเช้าให้ถูกต้อง เพื่อฟันที่สะอาดแข็งแรง!",
+                items: [
+                    { id: '1', text: "บีบยาสีฟันลงบนแปรงฟัน", icon: "🪥" },
+                    { id: '2', text: "แปรงฟันให้ทั่วทุกซี่นาน 2 นาที", icon: "🦷" },
+                    { id: '3', text: "บ้วนปากด้วยน้ำสะอาด", icon: "🥛" },
+                    { id: '4', text: "ล้างแปรงฟันและเก็บเข้าที่", icon: "✨" }
+                ],
+                correctOrder: ['1', '2', '3', '4'],
+                hint: "ลองคิดดูสิครับ เราต้องบีบยาสีฟันก่อนแปรง แล้วค่อยบ้วนปากบ้วนบีบยาสีฟันออกเป็นขั้นตอนถัดมา!"
+            },
+            {
+                id: 2,
+                title: "การทำแซนด์วิชแฮมชีส",
+                character: "🥪 เชฟนักสืบ",
+                scenario: "ช่วยเชฟเรียงลำดับการทำแซนด์วิชแสนอร่อยให้ลูกค้าตามลำดับขั้นตอนที่ถูกต้อง!",
+                items: [
+                    { id: '1', text: "วางขนมปังแผ่นแรกบนจาน", icon: "🍞" },
+                    { id: '2', text: "ทาเนยหรือมายองเนสลงบนขนมปัง", icon: "🧈" },
+                    { id: '3', text: "วางแฮมและชีสลงบนขนมปัง", icon: "🧀" },
+                    { id: '4', text: "นำขนมปังอีกแผ่นมาประกบทับด้านบน", icon: "🥪" }
+                ],
+                correctOrder: ['1', '2', '3', '4'],
+                hint: "เราต้องวางขนมปังก่อน ทาซอส วางไส้แฮมชีส แล้วปิดท้ายด้วยการนำขนมปังอีกแผ่นมาประกบครับ!"
+            },
+            {
+                id: 3,
+                title: "การปลูกต้นไม้ในกระถาง",
+                character: "🌱 นักสืบสายธรรมชาติ",
+                scenario: "ภารกิจปลูกต้นไม้เพื่อเพิ่มพื้นที่เขียว! เรียงขั้นตอนการปลูกให้ถูกต้องเพื่อเติบโตได้ดี",
+                items: [
+                    { id: '1', text: "ใส่ดินลงในกระถางประมาณครึ่งหนึ่ง", icon: "🪴" },
+                    { id: '2', text: "ใส่เมล็ดพันธุ์หรือต้นกล้าลงในดิน", icon: "🌱" },
+                    { id: '3', text: "กลบดินเพิ่มและกดเบาๆ ให้แน่น", icon: "🪵" },
+                    { id: '4', text: "รดน้ำให้ชุ่มชื้นพอเหมาะ", icon: "🚰" }
+                ],
+                correctOrder: ['1', '2', '3', '4'],
+                hint: "ใส่ดินก่อน แล้วใส่ต้นกล้า กลบดินทับ และอย่าลืมรดน้ำเป็นขั้นตอนสุดท้ายนะ!"
+            },
+            {
+                id: 4,
+                title: "การเปิดคอมพิวเตอร์เพื่อทำงาน",
+                character: "💻 นักสืบไอที",
+                scenario: "นักสืบต้องการใช้คอมพิวเตอร์ค้นหาเบาะแส เรียงขั้นตอนการเปิดใช้งานเครื่องให้ถูกต้อง",
+                items: [
+                    { id: '1', text: "เสียบปลั๊กไฟหรือเปิดสวิตช์ปลั๊กพ่วง", icon: "🔌" },
+                    { id: '2', text: "กดปุ่ม Power ที่ตัวเครื่องคอมพิวเตอร์ (CPU)", icon: "🖥️" },
+                    { id: '3', text: "เปิดสวิตช์หน้าจอภาพ (Monitor)", icon: "📺" },
+                    { id: '4', text: "รอระบบปฏิบัติการโหลดและป้อนรหัสผ่านเข้าใช้งาน", icon: "🔑" }
+                ],
+                correctOrder: ['1', '2', '3', '4'],
+                hint: "ต้องมีกระแสไฟเข้าเครื่องก่อน โดยเสียบปลั๊ก กดปุ่ม Power เปิดจอ แล้วจึงรอเข้าสู่ระบบ!"
+            },
+            {
+                id: 5,
+                title: "การชงโอวัลตินร้อน",
+                character: "☕ นักสืบจิบชา",
+                scenario: "ช่วยชงโอวัลตินร้อนแก้ง่วงให้คุณนักสืบ เรียงลำดับขั้นตอนตามอัลกอริทึมให้ปลอดภัย",
+                items: [
+                    { id: '1', text: "ตักผงโอวัลตินและนมผงใส่แก้ว", icon: "🥄" },
+                    { id: '2', text: "เทน้ำร้อนลงในแก้วอย่างระมัดระวัง", icon: "🫖" },
+                    { id: '3', text: "ใช้ช้อนคนให้ผงละลายเข้ากัน", icon: "🔄" },
+                    { id: '4', text: "ทดสอบความร้อนก่อนดื่ม", icon: "😋" }
+                ],
+                correctOrder: ['1', '2', '3', '4'],
+                hint: "ใส่ผงเครื่องดื่มในแก้วก่อน เทน้ำร้อน คนให้ละลาย แล้วค่อยชิมเมื่อหายร้อนครับ"
+            },
+            {
+                id: 6,
+                title: "การล้างมือ 7 ขั้นตอนป้องกันเชื้อโรค",
+                character: "🧼 นักสืบอนามัย",
+                scenario: "การล้างมือเป็นอัลกอริทึมที่สำคัญมาก! เรียงลำดับขั้นตอนหลักการล้างมือให้ถูกต้อง",
+                items: [
+                    { id: '1', text: "เปิดน้ำถูมือให้เปียกและบีบสบู่", icon: "💧" },
+                    { id: '2', text: "ถูฝ่ามือ หลังมือ และซอกนิ้วให้ทั่ว", icon: "🫧" },
+                    { id: '3', text: "ล้างฟองสบู่ออกด้วยน้ำสะอาด", icon: "🚰" },
+                    { id: '4', text: "เช็ดมือให้แห้งด้วยผ้าหรือกระดาษสะอาด", icon: "🧻" }
+                ],
+                correctOrder: ['1', '2', '3', '4'],
+                hint: "ทำมือให้เปียกใส่สบู่ ➔ ถูซอกนิ้วให้สะอาด ➔ ล้างฟองออก ➔ เช็ดมือให้แห้งสนิท!"
+            },
+            {
+                id: 7,
+                title: "การต้มมาม่า/บะหมี่กึ่งสำเร็จรูป",
+                character: "🍜 นักสืบสายกิน",
+                scenario: "ต้มบะหมี่กึ่งสำเร็จรูปอย่างไรให้อร่อยและเส้นนุ่มพอดี? เรียงขั้นตอนให้ตรงตามตรรกะ",
+                items: [
+                    { id: '1', text: "ต้มน้ำในหม้อหรือกาต้มน้ำให้เดือด", icon: "🔥" },
+                    { id: '2', text: "ใส่บะหมี่และเครื่องปรุงลงในน้ำเดือด", icon: "🍜" },
+                    { id: '3', text: "ต้มทิ้งไว้ประมาณ 3 นาทีจนเส้นนุ่ม", icon: "⏱️" },
+                    { id: '4', text: "เทใส่ชามพร้อมรับประทาน", icon: "🥣" }
+                ],
+                correctOrder: ['1', '2', '3', '4'],
+                hint: "ต้มน้ำให้เดือดก่อน จากนั้นใส่บะหมี่ รอน้ำเดือดจนเส้นนุ่ม แล้วค่อยเทใส่ชามครับ"
+            },
+            {
+                id: 8,
+                title: "การส่งอีเมลขอบคุณคุณครู",
+                character: "✉️ นักสืบดิจิทัล",
+                scenario: "นักสืบต้องการส่งอีเมลขอบคุณวิทยากร เรียงขั้นตอนการส่งอีเมลให้ถูกต้องแม่นยำ",
+                items: [
+                    { id: '1', text: "เปิดโปรแกรมอีเมลและกดปุ่ม 'เขียนอีเมล'", icon: "💻" },
+                    { id: '2', text: "กรอกที่อยู่อีเมลของผู้รับ (To:)", icon: "📧" },
+                    { id: '3', text: "พิมพ์ชื่อเรื่องและเนื้อหาข้อความให้สุภาพ", icon: "📝" },
+                    { id: '4', text: "ตรวจสอบความถูกต้องแล้วกดปุ่ม 'ส่ง' (Send)", icon: "🚀" }
+                ],
+                correctOrder: ['1', '2', '3', '4'],
+                hint: "เปิดหน้าเขียนอีเมล ➔ ระบุผู้รับ ➔ พิมพ์ข้อความ ➔ ตรวจทานและกดส่ง!"
+            },
+            {
+                id: 9,
+                title: "การซักผ้าด้วยเครื่องซักผ้าอัตโนมัติ",
+                character: "🧺 นักสืบงานบ้าน",
+                scenario: "ช่วยคุณแม่ซักเสื้อผ้าด้วยเครื่องซักผ้าตามลำดับขั้นตอนเพื่อไม่ให้ผ้าเสียหาย",
+                items: [
+                    { id: '1', text: "แยกผ้าขาวและผ้าสีออกจากกัน", icon: "👕" },
+                    { id: '2', text: "ใส่ผ้าลงในถังและใส่ผงซักฟอก/น้ำยาปรับผ้านุ่ม", icon: "🧼" },
+                    { id: '3', text: "เลือกโปรแกรมซักและกดปุ่มเริ่มทำงาน (Start)", icon: "🔘" },
+                    { id: '4', text: "เมื่อซักเสร็จ นำผ้าออกมาตากแดดให้แห้ง", icon: "☀️" }
+                ],
+                correctOrder: ['1', '2', '3', '4'],
+                hint: "แยกผ้าก่อนป้องกันสีตก ใส่ผ้าและผงซักฟอก กดปุ่มซัก แล้วค่อยนำผ้าไปตาก!"
+            },
+            {
+                id: 10,
+                title: "การค้นหาข้อมูลใน Google Search",
+                character: "🔎 สุภาพบุรุษนักสืบ",
+                scenario: "ด่านสุดท้าย! ค้นหาเบาะแสด้วยเสิร์ชเอนจินอย่างมีประสิทธิภาพตามอัลกอริทึมการค้นหา",
+                items: [
+                    { id: '1', text: "เปิดโปรแกรมเว็บเบราว์เซอร์ (Google Chrome)", icon: "🌐" },
+                    { id: '2', text: "พิมพ์คำค้นหา (Keyword) ที่ชัดเจนลงในช่องค้นหา", icon: "⌨️" },
+                    { id: '3', text: "กด Enter แล้วเลือกคลิกเว็บไซต์ที่น่าเชื่อถือ", icon: "🔗" },
+                    { id: '4', text: "อ่าน ประเมินความถูกต้อง และบันทึกข้อมูล", icon: "📚" }
+                ],
+                correctOrder: ['1', '2', '3', '4'],
+                hint: "เปิดเบราว์เซอร์ ➔ พิมพ์คำค้น ➔ เลือกเว็บไซต์น่าเชื่อถือ ➔ ตรวจสอบวิเคราะห์ข้อมูล!"
+            }
+        ];
+
+        let currentStageIndex = 0;
+        let totalScore = 0;
+        let totalCoins = 0;
+        let stageStars = Array(10).fill(0);
+        let currentStageAttempts = 0;
+        let currentOrderState = [];
+
+
+        // VIEW 1: START SCREEN
+        function showStartScreen() {
+            document.getElementById('status-bar').classList.add('hidden');
+            const main = document.getElementById('content-area');
+
+            main.innerHTML = `
+                <div class="text-center max-w-2xl mx-auto py-4">
+                    <div class="relative inline-block mb-3">
+                        <span class="text-7xl md:text-8xl animate-pulse inline-block">🕵️‍♂️</span>
+                        <span class="absolute -top-2 -right-2 text-4xl">⚡</span>
+                    </div>
+                    
+                    <h1 class="text-3xl md:text-5xl font-black text-slate-900 mb-2 tracking-wide">
+                        นักสืบอัลกอริทึม
+                    </h1>
+                    <p class="text-base md:text-xl text-detective-orange font-bold mb-6">
+                        เกมฝึกการคิดเชิงคำนวณและการเรียงลำดับขั้นตอน วิชาวิทยาการคำนวณ ป.5
+                    </p>
+
+                    <div class="bg-amber-100/90 border-2 border-amber-300 rounded-2xl p-4 md:p-5 mb-6 text-left shadow-sm">
+                        <h3 class="font-bold text-slate-900 text-base md:text-lg mb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-bullseye text-detective-orange"></i> เป้าหมายการเรียนรู้:
+                        </h3>
+                        <ul class="text-slate-700 text-xs md:text-sm space-y-1.5 font-medium">
+                            <li>✅ เข้าใจความหมายและการทำงานของ **อัลกอริทึม (Algorithm)**</li>
+                            <li>✅ ฝึกการเรียงลำดับขั้นตอนการทำงานให้ถูกต้องเป็นลำดับ</li>
+                            <li>✅ ฝึกคิดวิเคราะห์และแก้ปัญหาในชีวิตประจำวันอย่างเป็นระบบ</li>
+                        </ul>
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                        <button onclick="showInstructionsScreen()" class="w-full sm:w-auto px-6 py-3.5 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-base rounded-2xl border-b-4 border-slate-400 bounce-hover transition">
+                            <i class="fa-solid fa-circle-info mr-2"></i> วิธีการเล่น
+                        </button>
+                        <button onclick="startGame()" class="w-full sm:w-auto px-10 py-3.5 bg-amber-400 hover:bg-amber-500 text-slate-950 font-extrabold text-xl rounded-2xl border-b-4 border-amber-600 bounce-hover transition shadow-lg pulse-gold">
+                            <i class="fa-solid fa-play mr-2"></i> เริ่มภารกิจเลย!
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // VIEW 2: INSTRUCTIONS SCREEN
+        function showInstructionsScreen() {
+            playSound('click');
+            document.getElementById('status-bar').classList.add('hidden');
+            const main = document.getElementById('content-area');
+
+            main.innerHTML = `
+                <div class="max-w-2xl mx-auto py-2">
+                    <h2 class="text-2xl md:text-3xl font-bold text-slate-900 text-center mb-6 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-clipboard-list text-amber-500"></i> คู่มือนักสืบอัลกอริทึม
+                    </h2>
+
+                    <div class="space-y-3.5 mb-6">
+                        <div class="bg-white border-2 border-amber-200 p-3.5 rounded-2xl shadow-sm flex items-center gap-4">
+                            <div class="bg-amber-400 text-slate-900 w-10 h-10 rounded-xl flex items-center justify-center text-xl font-black shrink-0">1</div>
+                            <div>
+                                <h4 class="font-bold text-slate-900 text-sm md:text-base">อ่านสถานการณ์ภารกิจ</h4>
+                                <p class="text-slate-600 text-xs md:text-sm">สังเกตว่าภารกิจต้องการให้คุณแก้ปัญหาอะไรในชีวิตประจำวัน</p>
+                            </div>
+                        </div>
+
+                        <div class="bg-white border-2 border-amber-200 p-3.5 rounded-2xl shadow-sm flex items-center gap-4">
+                            <div class="bg-amber-400 text-slate-900 w-10 h-10 rounded-xl flex items-center justify-center text-xl font-black shrink-0">2</div>
+                            <div>
+                                <h4 class="font-bold text-slate-900 text-sm md:text-base">ลาก/สลับปรับลำดับขั้นตอน</h4>
+                                <p class="text-slate-600 text-xs md:text-sm">ใช้ปุ่มลูกศรขึ้น-ลง หรือลากการ์ดขั้นตอนเพื่อเรียงลำดับจาก 1 ถึง 4</p>
+                            </div>
+                        </div>
+
+                        <div class="bg-white border-2 border-amber-200 p-3.5 rounded-2xl shadow-sm flex items-center gap-4">
+                            <div class="bg-amber-400 text-slate-900 w-10 h-10 rounded-xl flex items-center justify-center text-xl font-black shrink-0">3</div>
+                            <div>
+                                <h4 class="font-bold text-slate-900 text-sm md:text-base">รับคะแนนและเหรียญรางวัล</h4>
+                                <p class="text-slate-600 text-xs md:text-sm">ผ่านด่านถูกต้องรับ 10 คะแนน พร้อมเหรียญและดาวสะสม 10 ด่าน!</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="text-center">
+                        <button onclick="startGame()" class="px-10 py-3.5 bg-amber-400 hover:bg-amber-500 text-slate-950 font-bold text-xl rounded-2xl border-b-4 border-amber-600 bounce-hover transition shadow-lg">
+                            พร้อมแล้ว ลุยเลย! <i class="fa-solid fa-arrow-right ml-2"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // START GAME
+        function startGame() {
+            playSound('click');
+            currentStageIndex = 0;
+            totalScore = 0;
+            totalCoins = 0;
+            stageStars = Array(10).fill(0);
+            updateStatusBar();
+            renderStage();
+        }
+
+        function updateStatusBar() {
+            document.getElementById('status-bar').classList.remove('hidden');
+            document.getElementById('stage-indicator').innerText = `ด่านที่ ${currentStageIndex + 1}/10`;
+            document.getElementById('stage-title-nav').innerText = stagesData[currentStageIndex].title;
+            
+            const totalStarsCount = stageStars.reduce((a, b) => a + b, 0);
+            document.getElementById('stars-display').innerText = totalStarsCount;
+            document.getElementById('coins-display').innerText = totalCoins;
+            document.getElementById('score-display').innerText = totalScore;
+        }
+
+        function renderStage() {
+            currentStageAttempts = 0;
+            const stage = stagesData[currentStageIndex];
+            updateStatusBar();
+
+            // Shuffle initial order for puzzle challenge
+            currentOrderState = [...stage.items].sort(() => Math.random() - 0.5);
+
+            const main = document.getElementById('content-area');
+            main.innerHTML = `
+                <div class="w-full max-w-3xl flex flex-col gap-4">
+                    
+                    <!-- Scenario Info Box -->
+                    <div class="bg-amber-50 border-2 border-amber-300 p-4 rounded-2xl shadow-sm flex items-center gap-4">
+                        <div class="text-4xl bg-white p-2.5 rounded-2xl border border-amber-200 shrink-0">
+                            ${stage.character.split(' ')[0]}
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="bg-amber-400 text-slate-950 text-xs font-bold px-2.5 py-0.5 rounded-full">${stage.character}</span>
+                                <span class="text-xs text-slate-500 font-bold">ด่านที่ ${stage.id}</span>
+                            </div>
+                            <p class="text-slate-800 font-medium text-sm md:text-base leading-snug">${stage.scenario}</p>
+                        </div>
+                    </div>
+
+                    <!-- Instructions / Task -->
+                    <div class="bg-white p-4 md:p-5 rounded-2xl border-2 border-slate-200 shadow-sm">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-sm md:text-base font-bold text-slate-800 flex items-center gap-2">
+                                <i class="fa-solid fa-sort text-amber-500"></i>
+                                เรียงลำดับขั้นตอนอัลกอริทึม (1 ไป 4):
+                            </h3>
+                            <button onclick="showHintModal()" class="text-xs bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold px-3 py-1 rounded-full border border-amber-300 transition">
+                                💡 ขอคำใบ้
+                            </button>
+                        </div>
+
+                        <!-- Drag & Drop Container -->
+                        <div id="ordering-list" class="space-y-2 mb-4">
+                            <!-- Items inserted dynamically -->
+                        </div>
+
+                        <button onclick="checkAnswer()" class="w-full py-3.5 bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-lg rounded-2xl border-b-4 border-amber-600 bounce-click transition shadow-md flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-check-double text-xl"></i> ตรวจสอบขั้นตอนการทำงาน
+                        </button>
+                    </div>
+
+                </div>
+            `;
+
+            renderOrderingItems();
+        }
+
+        function renderOrderingItems() {
+            const container = document.getElementById('ordering-list');
+            if (!container) return;
+
+            container.innerHTML = '';
+            currentOrderState.forEach((item, index) => {
+                const card = document.createElement('div');
+                card.className = "draggable-card bg-slate-50 border-2 border-slate-200 hover:border-amber-400 p-3 rounded-xl flex items-center justify-between shadow-sm transition";
+                card.draggable = true;
+                card.dataset.index = index;
+
+                card.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <span class="bg-slate-800 text-amber-400 w-7 h-7 rounded-lg font-black flex items-center justify-center text-sm shadow-inner">
+                            ${index + 1}
+                        </span>
+                        <span class="text-xl">${item.icon}</span>
+                        <span class="text-slate-800 font-semibold text-xs md:text-sm">${item.text}</span>
+                    </div>
+
+                    <div class="flex items-center gap-1">
+                        <button onclick="moveItem(${index}, -1)" class="w-8 h-8 bg-white border border-slate-300 rounded-lg text-slate-600 hover:bg-amber-100 disabled:opacity-30 transition" ${index === 0 ? 'disabled' : ''}>
+                            <i class="fa-solid fa-arrow-up"></i>
+                        </button>
+                        <button onclick="moveItem(${index}, 1)" class="w-8 h-8 bg-white border border-slate-300 rounded-lg text-slate-600 hover:bg-amber-100 disabled:opacity-30 transition" ${index === currentOrderState.length - 1 ? 'disabled' : ''}>
+                            <i class="fa-solid fa-arrow-down"></i>
+                        </button>
+                    </div>
+                `;
+
+                // Add Drag & Drop Events
+                card.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('text/plain', index);
+                    card.classList.add('dragging');
+                    playSound('drag');
+                });
+
+                card.addEventListener('dragend', () => {
+                    card.classList.remove('dragging');
+                });
+
+                card.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                });
+
+                card.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    const fromIndex = parseInt(e.dataTransfer.getData('text/plain'));
+                    const toIndex = index;
+                    if (fromIndex !== toIndex) {
+                        const movedItem = currentOrderState.splice(fromIndex, 1)[0];
+                        currentOrderState.splice(toIndex, 0, movedItem);
+                        playSound('drag');
+                        renderOrderingItems();
+                    }
+                });
+
+                container.appendChild(card);
+            });
+        }
+
+        function moveItem(index, direction) {
+            playSound('drag');
+            const targetIndex = index + direction;
+            if (targetIndex < 0 || targetIndex >= currentOrderState.length) return;
+            const temp = currentOrderState[index];
+            currentOrderState[index] = currentOrderState[targetIndex];
+            currentOrderState[targetIndex] = temp;
+            renderOrderingItems();
+        }
+
+        function checkAnswer() {
+            const stage = stagesData[currentStageIndex];
+            const userOrderIds = currentOrderState.map(item => item.id);
+            const isCorrect = JSON.stringify(userOrderIds) === JSON.stringify(stage.correctOrder);
+
+            if (isCorrect) {
+                handleCorrectAnswer();
+            } else {
+                handleWrongAnswer();
+            }
+        }
+
+        function handleCorrectAnswer() {
+            playSound('correct');
+            currentStageAttempts++;
+
+            let starsEarned = 1;
+            if (currentStageAttempts === 1) starsEarned = 3;
+            else if (currentStageAttempts === 2) starsEarned = 2;
+
+            stageStars[currentStageIndex] = starsEarned;
+            totalScore += 10; // 10 Points per correct stage as requested
+            totalCoins += starsEarned * 5;
+
+            updateStatusBar();
+
+            const isLastStage = currentStageIndex === stagesData.length - 1;
+
+            showModal(
+                "🎉 ถูกต้องแล้ว ยอดเยี่ยมมาก!",
+                `
+                    <div class="text-amber-400 text-3xl mb-2">
+                        ${'⭐'.repeat(starsEarned)}
+                    </div>
+                    <p class="text-slate-700 font-medium mb-3">คุณเรียงลำดับขั้นตอนอัลกอริทึมได้ถูกต้องสมบูรณ์!</p>
+                    <div class="inline-block bg-emerald-100 text-emerald-800 font-extrabold px-4 py-1.5 rounded-full text-sm border border-emerald-300">
+                        +10 คะแนน | +${starsEarned * 5} เหรียญทอง 🪙
+                    </div>
+                `,
+                isLastStage ? "ดูสรุปผลภารกิจ 🏆" : "ด่านถัดไป ➔",
+                () => {
+                    if (isLastStage) {
+                        showCompletionScreen();
+                    } else {
+                        currentStageIndex++;
+                        renderStage();
+                    }
+                }
+            );
+        }
+
+        function handleWrongAnswer() {
+            playSound('wrong');
+            currentStageAttempts++;
+            const stage = stagesData[currentStageIndex];
+
+            showModal(
+                "❌ ยังเรียงลำดับไม่ถูกต้องนะ!",
+                `
+                    <p class="text-slate-600 text-sm mb-3">ลองทบทวนและวิเคราะห์ขั้นตอนดูอีกครั้งนะครับ!</p>
+                    <div class="bg-amber-50 p-3 rounded-xl border border-amber-200 text-left text-xs md:text-sm text-slate-800">
+                        <p class="font-bold text-amber-900 mb-1">💡 คำใบ้นักสืบ:</p>
+                        <p>${stage.hint}</p>
+                    </div>
+                `,
+                "ลองใหม่อีกครั้ง 💪",
+                null
+            );
+        }
+
+        function showHintModal() {
+            playSound('click');
+            const stage = stagesData[currentStageIndex];
+            showModal(
+                "💡 คำใบ้นักสืบ",
+                `<p class="text-slate-700 text-sm">${stage.hint}</p>`,
+                "เข้าใจแล้ว",
+                null
+            );
+        }
+
+        let modalCallback = null;
+
+        function showModal(title, bodyHtml, btnText, onConfirm) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-body').innerHTML = bodyHtml;
+            document.getElementById('modal-btn').innerText = btnText;
+            modalCallback = onConfirm;
+            document.getElementById('modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            playSound('click');
+            document.getElementById('modal').classList.add('hidden');
+            if (modalCallback) {
+                modalCallback();
+                modalCallback = null;
+            }
+        }
+
+        function showCompletionScreen() {
+            playSound('win');
+            document.getElementById('status-bar').classList.add('hidden');
+            const main = document.getElementById('content-area');
+
+            const totalStars = stageStars.reduce((a, b) => a + b, 0);
+
+            main.innerHTML = `
+                <div class="text-center max-w-2xl mx-auto py-2">
+                    <div class="text-6xl mb-2 animate-bounce">🕵️‍♂️🏆</div>
+                    <h2 class="text-3xl md:text-4xl font-black text-amber-400 mb-1 tracking-wide drop-shadow-md">
+                        สุดยอดนักสืบอัลกอริทึม!
+                    </h2>
+                    <p class="text-slate-600 text-sm md:text-base font-bold mb-5">
+                        ยินดีด้วย! คุณไขคดีและผ่านภารกิจครบทั้ง 10 ด่านแล้ว
+                    </p>
+
+                    <!-- Score Card Summary -->
+                    <div class="bg-amber-50 border-4 border-amber-400 rounded-3xl p-5 mb-5 shadow-lg text-center">
+                        
+                        <div class="grid grid-cols-3 gap-2 mb-4 bg-white p-3 rounded-2xl border border-amber-200">
+                            <div>
+                                <p class="text-xs text-slate-500 font-bold">คะแนนรวม</p>
+                                <p class="text-2xl font-black text-emerald-600">${totalScore} / 100</p>
+                            </div>
+                            <div class="border-x border-slate-200">
+                                <p class="text-xs text-slate-500 font-bold">ดาวสะสม</p>
+                                <p class="text-2xl font-black text-amber-500"><i class="fa-solid fa-star"></i> ${totalStars}/30</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-slate-500 font-bold">เหรียญทอง</p>
+                                <p class="text-2xl font-black text-amber-600"><i class="fa-solid fa-coins"></i> ${totalCoins}</p>
+                            </div>
+                        </div>
+
+                        <!-- Core Learning takeaway message -->
+                        <div class="bg-amber-400 text-slate-950 p-3.5 rounded-2xl font-black text-sm md:text-base border-2 border-amber-500 shadow-sm">
+                            📌 "การเรียงลำดับขั้นตอนที่ถูกต้อง คือหัวใจสำคัญของอัลกอริทึม"
+                        </div>
+                    </div>
+
+                    <div class="flex gap-4 justify-center">
+                        <button onclick="showStartScreen()" class="px-6 py-3 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-base rounded-2xl border-b-4 border-slate-400 bounce-hover transition">
+                            <i class="fa-solid fa-house mr-2"></i> หน้าแรก
+                        </button>
+                        <button onclick="startGame()" class="px-8 py-3 bg-amber-400 hover:bg-amber-500 text-slate-950 font-extrabold text-base rounded-2xl border-b-4 border-amber-600 bounce-hover transition shadow-lg">
+                            <i class="fa-solid fa-rotate-right mr-2"></i> เล่นใหม่อีกครั้ง
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        window.onload = function() {
+            showStartScreen();
+        };
+    </script>
+</body>
+</html>
